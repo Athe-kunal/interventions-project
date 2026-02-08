@@ -10,6 +10,8 @@ from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel
 from interventions_rl.model import interventions_utils
 
+from interventions_rl.model import llama, qwen3
+
 
 @dataclass
 class TransferReport:
@@ -167,6 +169,33 @@ def load_hf_into_custom_model(
     )
     logger.info(f"Trainable parameters: {trainable_params / total_params * 100:.2f}%")
     return report, custom_model
+
+
+def load_interventions_model(
+    hf_model_name_or_path: str,
+    model_class: type[qwen3.Qwen3ForCausalLM] | type[llama.LlamaForCausalLM],
+    ic_config: interventions_utils.InterventionsConfig,
+    map_dtype: torch.dtype = torch.float32,
+    map_device: torch.device = torch.device("cuda"),
+    trust_remote_code: bool = True,
+) -> tuple[TransferReport, nn.Module]:
+    hf_config = AutoConfig.from_pretrained(
+        hf_model_name_or_path,
+        trust_remote_code=trust_remote_code,
+    )
+    custom_model = model_class(
+        interventions_config=ic_config,
+        config=hf_config,
+    )
+    report, module = load_hf_into_custom_model(
+        hf_model_name_or_path=hf_model_name_or_path,
+        custom_model=custom_model,
+        hf_config=hf_config,
+        map_dtype=map_dtype,
+        map_device=map_device,
+        trust_remote_code=trust_remote_code,
+    )
+    return report, module
 
 
 if __name__ == "__main__":
