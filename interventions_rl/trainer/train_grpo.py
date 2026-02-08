@@ -1,13 +1,13 @@
-# train_grpo.py
-from datasets import load_dataset
 import torch
 from trl import GRPOTrainer, GRPOConfig
-from trl.rewards import accuracy_reward
-
+from loguru import logger
 from interventions_rl.model import qwen3, llama, interventions_utils
 from interventions_rl.model.load_model import load_interventions_model
+from interventions_rl.data import open_r1
 
-dataset = load_dataset("trl-lib/DeepMath-103K", split="train")
+dataset = open_r1.load_openr1_dataset(
+    "open-r1/DAPO-Math-17k-Processed", example_numbers=100, test_split_ratio=0.1
+)
 
 report, model = load_interventions_model(
     hf_model_name_or_path="Qwen/Qwen3-1.7B",
@@ -25,13 +25,20 @@ report, model = load_interventions_model(
     trust_remote_code=True,
 )
 
-print(report.summary())
+logger.info(report.summary())
 
 config = GRPOConfig(
     use_vllm=True,
     vllm_mode="colocate",
 )
+logger.info(f"len(train_dataset): {len(dataset.train_dataset)}")
+logger.info(f"len(test_dataset): {len(dataset.test_dataset)}")
+
 trainer = GRPOTrainer(
-    model=model, reward_funcs=accuracy_reward, train_dataset=dataset, args=config
+    model=model,
+    reward_funcs=dataset.reward_functions,
+    train_dataset=dataset.train_dataset,
+    eval_dataset=dataset.test_dataset,
+    args=config,
 )
 trainer.train()
