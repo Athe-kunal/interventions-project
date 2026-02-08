@@ -3,16 +3,10 @@ import torch
 import torch.nn as nn
 import configmate
 from typing import Annotated, Literal, Self, cast
-from trainer.model import interventions
+from interventions_rl.model import interventions
 
-# Types for interventions (keep for type hints elsewhere)
-InterventionLayers = Literal["all", "odd_only", "even_only", "alternate"]
+InterventionLayers = Literal["all", "odd_only", "even_only", "last_only"]
 InterventionType = Literal["LoreftIntervention", "DireftIntervention"]
-
-INTERVENTION_PATTERNS = [
-    "*.pre_moe_intervention.*",
-    "*.after_moe_intervention.*",
-]
 
 InterventionTypeRegistry = {
     "LoreftIntervention": interventions.LoreftIntervention,
@@ -36,14 +30,14 @@ class InterventionsConfig(pydantic.BaseModel):
     ]
 
     intervention_layers: Annotated[
-        Literal["all", "odd_only", "even_only", "alternate"],
+        Literal["all", "odd_only", "even_only", "last_only"],
         pydantic.Field(
             description=(
                 "Controls which transformer layers receive interventions:\n"
                 "- 'all': apply to every layer\n"
                 "- 'odd_only': apply only to odd-numbered layers\n"
                 "- 'even_only': apply only to even-numbered layers\n"
-                "- 'alternate': apply in alternating pattern depending on index\n"
+                "- 'last_only': apply only to the last layer before the language model head\n"
                 "Useful for ablations and reducing compute overhead."
             ),
         ),
@@ -93,9 +87,14 @@ class InterventionsConfig(pydantic.BaseModel):
         return self.model_dump_json(indent=2, **kwargs)
 
 
-def _interventions_based_layer_idx(
-    interventions_config: InterventionsConfig, layer_idx: int
+def interventions_based_layer_idx(
+    interventions_config: InterventionsConfig, layer_idx: int, num_layers: int
 ) -> bool:
+    if (
+        interventions_config.intervention_layers == "last_only"
+        and layer_idx == num_layers - 1
+    ):
+        return True
     if interventions_config.intervention_layers == "all":
         return True
     elif interventions_config.intervention_layers == "even_only":
@@ -112,9 +111,10 @@ def build_intervention(
     icfg: InterventionsConfig,
     layer_idx: int,
     hidden_size: int,
+    num_layers: int,
 ) -> torch.nn.Module:
     """Create the requested intervention or Identity if not applicable."""
-    if not _interventions_based_layer_idx(icfg, layer_idx):
+    if not interventions_based_layer_idx(icfg, layer_idx, num_layers):
         return nn.Identity()
 
     # Enforce allowed types

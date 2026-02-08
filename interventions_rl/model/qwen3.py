@@ -17,7 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 import torch
 from torch import nn
@@ -59,7 +59,7 @@ from transformers.utils import TransformersKwargs, auto_docstring, logging
 from transformers.utils.deprecation import deprecate_kwarg
 from transformers.utils.generic import check_model_inputs
 from transformers.utils.import_utils import get_torch_version
-from trainer.model.llama import (
+from interventions_rl.model.llama import (
     LlamaAttention,
     LlamaDecoderLayer,
     LlamaForCausalLM,
@@ -75,7 +75,7 @@ from transformers.models.mistral.modeling_mistral import MistralModel
 from transformers.models.qwen2.configuration_qwen2 import Qwen2Config
 
 
-from trainer.model import interventions_utils
+from interventions_rl.model import interventions_utils
 
 logger = logging.get_logger(__name__)
 

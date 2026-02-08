@@ -50,7 +50,7 @@ from transformers.utils.deprecation import deprecate_kwarg
 from transformers.utils.generic import check_model_inputs
 from transformers.models.llama.configuration_llama import LlamaConfig
 
-from trainer.model import interventions_utils
+from interventions_rl.model import interventions_utils
 
 logger = logging.get_logger(__name__)
 
@@ -330,6 +330,7 @@ class LlamaDecoderLayer(GradientCheckpointingLayer):
             icfg=self.interventions_config,
             layer_idx=layer_idx,
             hidden_size=config.hidden_size,
+            num_layers=config.num_hidden_layers,
         )
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
