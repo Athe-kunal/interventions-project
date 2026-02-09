@@ -74,7 +74,7 @@ CUDA_VISIBLE_DEVICES=2,3 ACCELERATE_LOG_LEVEL=info \
     --config.training.use_vllm $([ "${VLLM_MODE}" != "disabled" ] && echo "true" || echo "false") \
     --config.training.vllm_mode "${VLLM_MODE}" \
     --config.training.vllm_gpu_memory_utilization 0.3 \
-    --config.training.vllm_tensor_parallel_size 2 \
+    --config.training.vllm_tensor_parallel_size 1 \
     --config.training.vllm_server_host "${VLLM_SERVER_HOST}" \
     --config.training.vllm_server_port "${VLLM_SERVER_PORT}" \
     --config.training.top_entropy_quantile 1.0 \

@@ -1,21 +1,11 @@
 #!/bin/bash
 
-# Simple training script for quick testing (single GPU)
-# This script uses minimal resources for testing purposes
-#
-# Customize interventions by editing the parameters below:
-#   - intervention_type: "LoreftIntervention" or "DireftIntervention"
-#   - intervention_layers: "all", "odd_only", "even_only", or "last_only"
-#   - low_rank_dimension: rank for low-rank interventions (e.g., 128, 256)
-#   - dropout: dropout rate for interventions
-#   - act_fn: activation function ("gelu", "relu", or null for linear)
-
 OUTPUT_DIR="${OUTPUT_DIR:-./outputs/test_run}"
 mkdir -p "${OUTPUT_DIR}"
 
 echo "Starting simple GRPO training (single GPU)..."
 
-python run.py train \
+uv run python run.py train \
     --config.common.seed 42 \
     --config.model.model_name_or_path "Qwen/Qwen3-1.7B" \
     --config.model.dtype "bfloat16" \
