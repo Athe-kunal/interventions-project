@@ -58,6 +58,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
     --config.training.use_vllm true \
     --config.training.vllm_mode "colocate" \
     --config.training.vllm_gpu_memory_utilization 0.6 \
+    --config.training.vllm_tensor_parallel_size 2 \
     --config.training.top_entropy_quantile 1.0 \
     --config.training.epsilon_high 0.28 \
     --config.training.lr_scheduler_type "cosine" \
