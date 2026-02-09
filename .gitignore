@@ -11,3 +11,5 @@ wheels/
 .mypy_cache/
 # Jupyter Notebook
 .ipynb_checkpoints
+
+outputs/
