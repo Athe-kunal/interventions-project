@@ -1,0 +1,73 @@
+# Default configuration for GRPO training
+
+seed: 42
+
+model:
+  model_name_or_path: "Qwen/Qwen3-1.7B"
+  dtype: "bfloat16"
+  trust_remote_code: true
+  
+  # Interventions config (choose one method):
+  # Method 1: Provide path to yaml
+  # interventions_config_path: "path/to/config.yaml"
+  
+  # Method 2: Specify inline
+  intervention_type: "LoreftIntervention"
+  intervention_layers: "all"
+  low_rank_dimension: 128
+  dropout: 0.0
+  init_orth: true
+
+dataset:
+  dataset_name_or_path: "open-r1/DAPO-Math-17k-Processed"
+  example_numbers: 1000
+  test_split_ratio: 0.1
+
+training:
+  output_dir: "./outputs"
+  run_name: null
+  
+  # Training params
+  learning_rate: 1e-5
+  num_train_epochs: 1
+  max_steps: -1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+  warmup_ratio: 0.0
+  lr_scheduler_type: "linear"
+  
+  # GRPO specific
+  beta: 0.0
+  num_generations: 8
+  num_generations_eval: null
+  max_completion_length: 256
+  max_prompt_length: null
+  temperature: 1.0
+  top_p: 1.0
+  top_k: 0
+  epsilon: 0.2
+  epsilon_high: null
+  top_entropy_quantile: 1.0
+  loss_type: "dapo"
+  
+  # Generation
+  use_vllm: false
+  vllm_mode: "server"
+  vllm_gpu_memory_utilization: 0.3
+  vllm_tensor_parallel_size: 1
+  
+  # Logging and saving
+  logging_steps: 1
+  save_strategy: "steps"
+  save_steps: 500
+  remove_unused_columns: false
+  report_to: null
+  
+  # Other
+  use_liger_kernel: false
+  mask_truncated_completions: false
+
+logging:
+  wandb_project: null
+  trackio_space_id: null
+  trackio_project: null

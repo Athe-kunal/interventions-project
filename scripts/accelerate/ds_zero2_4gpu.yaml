@@ -20,7 +20,6 @@ deepspeed_config:
   offload_param_device: none
   zero3_init_flag: false
   zero_stage: 2
-  gradient_accumulation_steps: 1
   gradient_clipping: 1.0
   train_batch_size: auto
   train_micro_batch_size_per_gpu: auto

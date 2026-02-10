@@ -42,18 +42,26 @@ This runs full-scale training with 4 GPUs and vLLM acceleration.
 ### Basic Training
 
 ```bash
-python run.py train \
-    --config.model.model_name_or_path "Qwen/Qwen3-1.7B" \
-    --config.training.output_dir "./outputs/basic"
+python run.py --config configs/config.yaml
+```
+
+### Override Config Values
+
+```bash
+python run.py \
+    --config configs/config.yaml \
+    --model.model_name_or_path "Qwen/Qwen3-1.7B" \
+    --training.output_dir "./outputs/basic"
 ```
 
 ### Custom Interventions
 
 ```bash
-python run.py train \
-    --config.model.intervention_type "DireftIntervention" \
-    --config.model.low_rank_dimension 256 \
-    --config.training.output_dir "./outputs/direft"
+python run.py \
+    --config configs/config.yaml \
+    --model.intervention_type DireftIntervention \
+    --model.low_rank_dimension 256 \
+    --training.output_dir "./outputs/direft"
 ```
 
 ### Multi-GPU Training
@@ -61,10 +69,11 @@ python run.py train \
 ```bash
 CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
     --config_file scripts/accelerate/ds_zero2_4gpu.yaml \
-    run.py train \
-    --config.model.model_name_or_path "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" \
-    --config.training.use_vllm true \
-    --config.training.output_dir "./outputs/multi_gpu"
+    run.py \
+    --config configs/config.yaml \
+    --model.model_name_or_path "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" \
+    --training.use_vllm true \
+    --training.output_dir "./outputs/multi_gpu"
 ```
 
 ### Production Training
@@ -80,29 +89,38 @@ export MODEL_NAME="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 
 ## Configuration
 
-### Interventions Config (YAML)
+Configuration is managed via YAML config files. Default settings are in `configs/config.yaml`.
 
-Edit `interventions_rl/model/interventions_config.yaml`:
+### Override from Command Line
 
-```yaml
-InterventionsConfig:
-  intervention_type: "LoreftIntervention"  # or "DireftIntervention"
-  intervention_layers: "all"                # all, odd_only, even_only, last_only
-  low_rank_dimension: 128
-  dropout: 0.0
-  act_fn: "gelu"                           # gelu, relu, or null
-  init_orth: true
-```
-
-**Example:**
 ```bash
-python run.py train \
-    --config.model.model_name_or_path "Qwen/Qwen3-1.7B" \
-    --config.training.learning_rate 1e-5 \
-    --config.training.max_steps 100 \
-    --config.training.report_to '["wandb"]' \
-    --config.logging.wandb_project "my-project"
+python run.py \
+    --config configs/config.yaml \
+    --model.model_name_or_path "Qwen/Qwen3-1.7B" \
+    --training.learning_rate 1e-5 \
+    --training.max_steps 100 \
+    --logging.wandb_project "my-project"
 ```
+
+### Interventions Config
+
+Edit `configs/config.yaml` or override via command line:
+
+```bash
+python run.py \
+    --config configs/config.yaml \
+    --model.intervention_type LoreftIntervention \
+    --model.intervention_layers all \
+    --model.low_rank_dimension 128 \
+    --model.dropout 0.0 \
+    --model.act_fn gelu
+```
+
+**Layer Selection** (`intervention_layers`):
+- `all` - All transformer layers
+- `odd_only` - Layers 1, 3, 5, ...
+- `even_only` - Layers 0, 2, 4, ...
+- `last_only` - Only the last layer
 
 ## Intervention Features Explained
 
@@ -119,22 +137,30 @@ python run.py train \
 - `last_only` - Only the last layer
 
 
-To load:
+## Model Saving and Loading
+
+Only trainable parameters (where `requires_grad=True`) are saved to reduce storage. To load:
 
 ```python
 import torch
 from interventions_rl.model import qwen3, interventions_utils
+from interventions_rl.model.load_model import load_interventions_model
 
 # Load config
 config = interventions_utils.InterventionsConfig.parse_file(
     "outputs/experiment/final_model/interventions_config.json"
 )
 
-# Load model
-model = qwen3.Qwen3ForCausalLM(
-    interventions_config=config,
-    config=hf_config,
+# Load base model with interventions
+_, model = load_interventions_model(
+    hf_model_name_or_path="Qwen/Qwen3-1.7B",
+    model_class=qwen3.Qwen3ForCausalLM,
+    ic_config=config,
+    map_dtype=torch.bfloat16,
 )
-model.load_state_dict(torch.load("outputs/experiment/final_model/model.pt"))
+
+# Load trained intervention weights
+trainable_weights = torch.load("outputs/experiment/final_model/trainable_weights.pt")
+model.load_state_dict(trainable_weights, strict=False)
 ```
 

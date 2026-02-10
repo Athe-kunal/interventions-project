@@ -2,7 +2,7 @@ import pydantic
 import torch
 import torch.nn as nn
 import configmate
-from typing import Annotated, Literal, Self, cast
+from typing import Annotated, Literal, cast, Self
 from interventions_rl.model import interventions
 
 InterventionLayers = Literal["all", "odd_only", "even_only", "last_only"]
