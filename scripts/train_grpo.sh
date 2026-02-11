@@ -3,8 +3,9 @@
 OUTPUT_DIR="${OUTPUT_DIR:-./outputs/grpo_experiment_$(date +%Y%m%d_%H%M%S)}"
 LOG_FILE="${LOG_FILE:-${OUTPUT_DIR}/training.log}"
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen3-0.6B}"
+DATASET_NAME="${DATASET_NAME:-open-r1/DAPO-Math-17k-Processed}"
 # Use server mode by default to avoid colocated vLLM memory profiling races.
-VLLM_MODE="${VLLM_MODE:-server}"
+VLLM_MODE="${VLLM_MODE:-colocate}"
 VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.6}"
 VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-1}"
 VLLM_SERVER_HOST="${VLLM_SERVER_HOST:-localhost}"
@@ -46,28 +47,26 @@ CUDA_VISIBLE_DEVICES=2,3 ACCELERATE_LOG_LEVEL=info \
     --main_process_port 29503 \
     --config_file scripts/accelerate/ds_zero2_4gpu.yaml \
     run.py \
-    --config configs/config.yaml \
-    --model.model_name_or_path "${MODEL_NAME}" \
-    --training.output_dir "${OUTPUT_DIR}" \
-    --training.run_name $(basename ${OUTPUT_DIR}) \
-    --training.gradient_accumulation_steps 2 \
-    --training.max_completion_length 16384 \
-    --training.max_prompt_length 512 \
-    --training.per_device_train_batch_size 4 \
-    --training.save_steps 64 \
-    --training.max_steps 1024 \
-    --training.use_vllm $([ "${VLLM_MODE}" != "disabled" ] && echo "true" || echo "false") \
-    --training.vllm_mode "${VLLM_MODE}" \
-    --training.vllm_gpu_memory_utilization "${VLLM_GPU_MEMORY_UTILIZATION}" \
-    --training.vllm_tensor_parallel_size "${VLLM_TENSOR_PARALLEL_SIZE}" \
-    --training.vllm_server_host "${VLLM_SERVER_HOST}" \
-    --training.vllm_server_port "${VLLM_SERVER_PORT}" \
-    --training.epsilon_high 0.28 \
-    --training.lr_scheduler_type cosine \
-    --training.use_liger_kernel true \
-    --training.loss_type dr_grpo \
-    --logging.wandb_project grpo-full-interventions \
-    --dataset.example_numbers 1000000000 \
+    --config.model.model_name_or_path "${MODEL_NAME}" \
+    --config.dataset.dataset_name_or_path "${DATASET_NAME}" \
+    --config.training.output_dir "${OUTPUT_DIR}" \
+    --config.training.run_name "$(basename "${OUTPUT_DIR}")" \
+    --config.training.gradient_accumulation_steps 2 \
+    --config.training.max_completion_length 16384 \
+    --config.training.max_prompt_length 512 \
+    --config.training.per_device_train_batch_size 4 \
+    --config.training.save_steps 64 \
+    --config.training.max_steps 1024 \
+    --config.training.use_vllm $([ "${VLLM_MODE}" != "disabled" ] && echo "true" || echo "false") \
+    --config.training.vllm_mode "${VLLM_MODE}" \
+    --config.training.vllm_gpu_memory_utilization "${VLLM_GPU_MEMORY_UTILIZATION}" \
+    --config.training.vllm_tensor_parallel_size "${VLLM_TENSOR_PARALLEL_SIZE}" \
+    --config.training.epsilon_high 0.28 \
+    --config.training.lr_scheduler_type cosine \
+    --config.training.use_liger_kernel true \
+    --config.training.loss_type dr_grpo \
+    --config.training.report_to "[]" \
+    --config.dataset.example_numbers 1000000000 \
     2>&1 | tee "${LOG_FILE}"
 
 echo "Training complete! Check: ${LOG_FILE}"

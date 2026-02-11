@@ -61,6 +61,9 @@ class TrainingConfig:
     # Mika Update: all vllm
     vllm_mode: str = "colocate"
     vllm_gpu_memory_utilization: float = 0.4
+    vllm_tensor_parallel_size: int = 1
+    vllm_server_host: str = "localhost"
+    vllm_server_port: int = 8000
     use_liger_kernel: bool = True
     epsilon_high: float = 0.2
     lr_scheduler_type: str = "cosine"

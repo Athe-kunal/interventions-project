@@ -3,12 +3,12 @@ import os
 import sys
 
 from typing import Optional
-from datasets import load_dataset
 from transformers import set_seed, AutoModelForCausalLM, AutoTokenizer
 from trl import GRPOConfig, GRPOTrainer
 from loguru import logger
 
 from config import TrainConfig
+from interventions_rl.data.open_r1 import load_openr1_dataset
 
 
 _logged: set[str] = set()
@@ -99,19 +99,14 @@ def train(config: Optional[TrainConfig] = None):
         )
 
     logger.info(f"Loading dataset from {args.dataset.dataset_name_or_path}")
-    dataset = load_dataset(
+    dataset = load_openr1_dataset(
         args.dataset.dataset_name_or_path,
         example_numbers=args.dataset.example_numbers,
-        tokenizer=tokenizer,
     )
-    train_dataset = dataset["train_dataset"]
-    test_dataset = dataset["test_dataset"]
-    reward_functions = dataset["reward_functions"]
+    train_dataset = dataset.train_dataset
+    reward_functions = dataset.reward_functions
 
-    if "reward_weights" in dataset:
-        reward_weights = dataset["reward_weights"]
-    else:
-        reward_weights = [1.0] * len(reward_functions)
+    reward_weights = dataset.reward_weights or [1.0] * len(reward_functions)
     args.training.reward_weights = reward_weights
 
     # 2. load and configure model
@@ -119,7 +114,7 @@ def train(config: Optional[TrainConfig] = None):
     model = AutoModelForCausalLM.from_pretrained(
         args.model.model_name_or_path,
         torch_dtype=torch.bfloat16 if args.model.dtype == "bfloat16" else torch.float16,
-        attn_implementation="flash_attention_2",
+        attn_implementation="sdpa",
     )
     logger.info(f"Model loaded successfully")
 
