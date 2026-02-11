@@ -91,5 +91,5 @@ def load_openr1_dataset(
         train_dataset=train_dataset,
         test_dataset=test_dataset,
         reward_functions=[accuracy_reward, format_reward],
-        reward_weights=[1.0],
+        reward_weights=[1.0, 1.0],
     )

@@ -4,20 +4,12 @@ OUTPUT_DIR="${OUTPUT_DIR:-./outputs/grpo_experiment_$(date +%Y%m%d_%H%M%S)}"
 LOG_FILE="${LOG_FILE:-${OUTPUT_DIR}/training.log}"
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen3-0.6B}"
 DATASET_NAME="${DATASET_NAME:-open-r1/DAPO-Math-17k-Processed}"
-# Use server mode by default to avoid colocated vLLM memory profiling races.
+# vLLM mode: colocate, server, or disabled
 VLLM_MODE="${VLLM_MODE:-colocate}"
-VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.6}"
-VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-1}"
+VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.3}"
+VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-4}"
 VLLM_SERVER_HOST="${VLLM_SERVER_HOST:-localhost}"
 VLLM_SERVER_PORT="${VLLM_SERVER_PORT:-8000}"
-ALLOW_COLOCATE_VLLM="${ALLOW_COLOCATE_VLLM:-false}"
-
-# If VLLM_MODE is exported as "colocate" in the shell, force server mode by default.
-# Set ALLOW_COLOCATE_VLLM=true only if you explicitly want colocate behavior.
-if [ "${VLLM_MODE}" = "colocate" ] && [ "${ALLOW_COLOCATE_VLLM}" != "true" ]; then
-    echo "Overriding VLLM_MODE=colocate -> server (set ALLOW_COLOCATE_VLLM=true to keep colocate)."
-    VLLM_MODE="server"
-fi
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -42,7 +34,7 @@ fi
 
 export VLLM_SKIP_WARMUP=1
 
-CUDA_VISIBLE_DEVICES=2,3 ACCELERATE_LOG_LEVEL=info \
+CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
     uv run accelerate launch \
     --main_process_port 29503 \
     --config_file scripts/accelerate/ds_zero2_4gpu.yaml \
@@ -63,7 +55,7 @@ CUDA_VISIBLE_DEVICES=2,3 ACCELERATE_LOG_LEVEL=info \
     --config.training.vllm_tensor_parallel_size "${VLLM_TENSOR_PARALLEL_SIZE}" \
     --config.training.epsilon_high 0.28 \
     --config.training.lr_scheduler_type cosine \
-    --config.training.use_liger_kernel true \
+    --config.training.use_liger_kernel false \
     --config.training.loss_type dr_grpo \
     --config.training.report_to "[]" \
     --config.dataset.example_numbers 1000000000 \
