@@ -4,13 +4,14 @@ import sys
 
 from typing import Optional
 from transformers import set_seed, AutoTokenizer
-from trl import GRPOConfig, GRPOTrainer
+from trl import GRPOConfig
 from loguru import logger
 
 from config import TrainConfig
 from interventions_rl.data.open_r1 import load_openr1_dataset
 from interventions_rl.model import qwen, llama, interventions_utils
 from interventions_rl.model.load_model import load_interventions_model
+from interventions_rl.trainer.grpo_trainer import InterventionsGRPOTrainer
 
 
 _logged: set[str] = set()
@@ -156,7 +157,7 @@ def train(config: Optional[TrainConfig] = None):
 
     # 4.Train
     logger.info(f"Training model with GRPO")
-    trainer = GRPOTrainer(
+    trainer = InterventionsGRPOTrainer(
         model=model,
         processing_class=tokenizer,
         reward_funcs=reward_functions,
