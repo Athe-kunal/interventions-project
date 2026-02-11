@@ -3,12 +3,14 @@ import os
 import sys
 
 from typing import Optional
-from transformers import set_seed, AutoModelForCausalLM, AutoTokenizer
+from transformers import set_seed, AutoTokenizer
 from trl import GRPOConfig, GRPOTrainer
 from loguru import logger
 
 from config import TrainConfig
 from interventions_rl.data.open_r1 import load_openr1_dataset
+from interventions_rl.model import qwen, llama, interventions_utils
+from interventions_rl.model.load_model import load_interventions_model
 
 
 _logged: set[str] = set()
@@ -19,7 +21,7 @@ def init_logger() -> None:
     logger.add(
         sys.stdout,
         level="INFO",
-        format="[PeRL] {time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
+        format="[Interventions] {time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
     )
     # suppress verbose torch.profiler logging
     os.environ["KINETO_LOG_LEVEL"] = "5"
@@ -109,14 +111,43 @@ def train(config: Optional[TrainConfig] = None):
     reward_weights = dataset.reward_weights or [1.0] * len(reward_functions)
     args.training.reward_weights = reward_weights
 
-    # 2. load and configure model
+    # 2. load model with interventions
     logger.info(f"Loading model from {args.model.model_name_or_path}")
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model.model_name_or_path,
-        torch_dtype=torch.bfloat16 if args.model.dtype == "bfloat16" else torch.float16,
-        attn_implementation="sdpa",
+    dtype = torch.bfloat16 if args.model.dtype == "bfloat16" else torch.float16
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Build interventions config from args
+    ic = args.interventions
+    iv_config = interventions_utils.InterventionsConfig(
+        intervention_type=ic.intervention_type,
+        intervention_layers=ic.intervention_layers,
+        low_rank_dimension=ic.low_rank_dimension,
+        dropout=ic.dropout,
+        act_fn=ic.act_fn,
+        init_orth=ic.init_orth,
     )
-    logger.info(f"Model loaded successfully")
+
+    # Infer model class from name
+    model_name = args.model.model_name_or_path.lower()
+    if "qwen3" in model_name:
+        model_class = qwen.Qwen3ForCausalLM
+    elif "qwen2" in model_name:
+        model_class = qwen.Qwen2ForCausalLM
+    elif "llama" in model_name:
+        model_class = llama.LlamaForCausalLM
+    else:
+        raise ValueError(
+            f"Cannot infer model type from: {args.model.model_name_or_path}"
+        )
+
+    report, model = load_interventions_model(
+        hf_model_name_or_path=args.model.model_name_or_path,
+        model_class=model_class,
+        ic_config=iv_config,
+        map_dtype=dtype,
+        map_device=device,
+    )
+    logger.info(f"Model loaded: {report.summary()}")
 
     # 3.Training configuration
     training_args = GRPOConfig(

@@ -10,7 +10,7 @@ from torch import nn
 from transformers import AutoModelForCausalLM, AutoConfig, PreTrainedModel
 from interventions_rl.model import interventions_utils
 
-from interventions_rl.model import llama, qwen3
+from interventions_rl.model import llama, qwen
 
 
 @dataclass
@@ -173,7 +173,11 @@ def load_hf_into_custom_model(
 
 def load_interventions_model(
     hf_model_name_or_path: str,
-    model_class: type[qwen3.Qwen3ForCausalLM] | type[llama.LlamaForCausalLM],
+    model_class: (
+        type[qwen.Qwen3ForCausalLM]
+        | type[qwen.Qwen2ForCausalLM]
+        | type[llama.LlamaForCausalLM]
+    ),
     ic_config: interventions_utils.InterventionsConfig,
     map_dtype: torch.dtype = torch.float32,
     map_device: torch.device = torch.device("cuda"),
@@ -199,14 +203,14 @@ def load_interventions_model(
 
 
 if __name__ == "__main__":
-    from interventions_rl.model import qwen3
+    from interventions_rl.model import qwen
 
     hf_model_name_or_path = "Qwen/Qwen3-1.7B"
     hf_config = AutoConfig.from_pretrained(
         hf_model_name_or_path,
         trust_remote_code=True,
     )
-    custom_model = qwen3.Qwen3ForCausalLM(
+    custom_model = qwen.Qwen3ForCausalLM(
         interventions_config=interventions_utils.InterventionsConfig(
             intervention_type="LoreftIntervention",
             intervention_layers="all",

@@ -243,25 +243,26 @@ class LlamaAttention(nn.Module):
         self.attention_dropout = config.attention_dropout
         self.is_causal = True
 
+        attention_bias = getattr(config, "attention_bias", False)
         self.q_proj = nn.Linear(
             config.hidden_size,
             config.num_attention_heads * self.head_dim,
-            bias=config.attention_bias,
+            bias=attention_bias,
         )
         self.k_proj = nn.Linear(
             config.hidden_size,
             config.num_key_value_heads * self.head_dim,
-            bias=config.attention_bias,
+            bias=attention_bias,
         )
         self.v_proj = nn.Linear(
             config.hidden_size,
             config.num_key_value_heads * self.head_dim,
-            bias=config.attention_bias,
+            bias=attention_bias,
         )
         self.o_proj = nn.Linear(
             config.num_attention_heads * self.head_dim,
             config.hidden_size,
-            bias=config.attention_bias,
+            bias=attention_bias,
         )
 
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
