@@ -1,6 +1,5 @@
 import torch
 import os
-import sys
 
 from typing import Optional
 from transformers import set_seed, AutoTokenizer
@@ -13,29 +12,7 @@ from interventions_rl.model import qwen, llama, interventions_utils
 from interventions_rl.model.load_model import load_interventions_model
 
 
-_logged: set[str] = set()
-
-
-def init_logger() -> None:
-    logger.remove()
-    logger.add(
-        sys.stdout,
-        level="INFO",
-        format="[Interventions] {time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
-    )
-    # suppress verbose torch.profiler logging
-    os.environ["KINETO_LOG_LEVEL"] = "5"
-
-
-def warn_once(msg: str) -> None:
-    """Log a warning message only once per unique message."""
-    if msg not in _logged:
-        logger.warning(msg)
-        _logged.add(msg)
-
-
 def fuzzy_jobs(args: TrainConfig):
-    init_logger()
     args.training.output_dir = args.training.output_dir or "output"
     args.training.run_name = (
         args.training.run_name or args.training.output_dir
@@ -57,16 +34,7 @@ def fuzzy_jobs(args: TrainConfig):
         is_main_process = torch.distributed.get_rank() == 0
 
     if is_main_process:
-        if "trackio" in args.training.report_to:
-            import trackio
-
-            trackio.init(
-                project=args.logging.trackio_project,
-                space_id=args.logging.trackio_space_id,
-                config=vars(args.training),
-            )
-            logger.info(f"Trackio initialized successfully")
-        elif "wandb" in args.training.report_to:
+        if "wandb" in args.training.report_to:
             import wandb
 
             wandb.init(
@@ -80,7 +48,7 @@ def fuzzy_jobs(args: TrainConfig):
 
 def train(config: Optional[TrainConfig] = None):
     # 0. parse args and prepare logger
-    print(config)
+    logger.info(config)
     args = fuzzy_jobs(config)
 
     # 1. load tokenizer and dataset
