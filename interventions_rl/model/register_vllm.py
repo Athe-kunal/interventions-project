@@ -1,17 +1,17 @@
 from vllm import ModelRegistry
-from .qwen2_vllm import Qwen2ForCausalLM
-from .qwen3_vllm import Qwen3ForCausalLM
-from .llama_vllm import LlamaForCausalLM
+from .qwen2_vllm import Qwen2InterventionsForCausalLM
+from .qwen3_vllm import Qwen3InterventionsForCausalLM
+from .llama_vllm import LlamaInterventionsForCausalLM
 
 ModelRegistry.register_model(
-    "Qwen2ForCausalLM",
-    Qwen2ForCausalLM,
+    "Qwen2InterventionsForCausalLM",
+    Qwen2InterventionsForCausalLM,
 )
 ModelRegistry.register_model(
-    "Qwen3ForCausalLM",
-    Qwen3ForCausalLM,
+    "Qwen3InterventionsForCausalLM",
+    Qwen3InterventionsForCausalLM,
 )
 ModelRegistry.register_model(
-    "LlamaForCausalLM",
-    LlamaForCausalLM,
+    "LlamaInterventionsForCausalLM",
+    LlamaInterventionsForCausalLM,
 )

@@ -108,17 +108,19 @@ def interventions_based_layer_idx(
 
 def build_intervention(
     *,
-    icfg: InterventionsConfig,
+    icfg: InterventionsConfig | None,
     layer_idx: int,
     hidden_size: int,
     num_layers: int,
 ) -> torch.nn.Module:
     """Create the requested intervention or Identity if not applicable."""
+    if icfg is None:
+        return nn.Identity()
     if not interventions_based_layer_idx(icfg, layer_idx, num_layers):
         return nn.Identity()
 
     # Enforce allowed types
-    if icfg.intervention_type not in InterventionTypeRegistry:
+    if icfg is not None and icfg.intervention_type not in InterventionTypeRegistry:
         raise ValueError(
             f"Unsupported intervention_type={icfg.intervention_type!r}. "
             f"Allowed: Loreft and Direft"

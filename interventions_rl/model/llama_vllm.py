@@ -25,6 +25,7 @@
 """Inference-only LLaMA model compatible with HuggingFace weights."""
 
 from collections.abc import Iterable
+from functools import partial
 from itertools import islice
 
 import torch
@@ -72,6 +73,7 @@ from vllm.model_executor.models.utils import (
     make_layers,
     maybe_prefix,
 )
+from interventions_rl.model import interventions_utils
 
 
 class LlamaMLP(nn.Module):
@@ -707,3 +709,89 @@ class LlamaForCausalLM(
                 name = name.replace(item, mapping[item])
 
         return name, loaded_weight
+
+
+class LlamaInterventionsDecoderLayer(LlamaDecoderLayer):
+    def __init__(
+        self,
+        vllm_config: VllmConfig,
+        prefix: str = "",
+        config: LlamaConfig | None = None,
+        *,
+        interventions_config: interventions_utils.InterventionsConfig,
+    ) -> None:
+        super().__init__(vllm_config=vllm_config, prefix=prefix, config=config)
+        cfg = config or vllm_config.model_config.hf_config
+        self.interventions_config = interventions_config
+        self.intervention = interventions_utils.build_intervention(
+            icfg=interventions_config,
+            layer_idx=extract_layer_index(prefix),
+            hidden_size=self.hidden_size,
+            num_layers=cfg.num_hidden_layers,
+        )
+
+    def forward(
+        self,
+        positions: torch.Tensor,
+        hidden_states: torch.Tensor,
+        residual: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Self Attention
+        if residual is None:
+            residual = hidden_states
+            hidden_states = self.input_layernorm(hidden_states)
+        else:
+            hidden_states, residual = self.input_layernorm(hidden_states, residual)
+        hidden_states = self.self_attn(positions=positions, hidden_states=hidden_states)
+
+        # Fully Connected
+        hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
+        hidden_states = self.mlp(hidden_states)
+        full_state = residual + hidden_states
+        full_state = self.intervention(full_state)
+        hidden_states = full_state - residual
+        return hidden_states, residual
+
+
+class LlamaInterventionsModel(LlamaModel):
+    def __init__(
+        self,
+        *,
+        vllm_config: VllmConfig,
+        prefix: str = "",
+        interventions_config: interventions_utils.InterventionsConfig,
+    ):
+        self.interventions_config = interventions_config
+        layer_with_interventions = partial(
+            LlamaInterventionsDecoderLayer,
+            interventions_config=interventions_config,
+        )
+        super().__init__(
+            vllm_config=vllm_config,
+            prefix=prefix,
+            layer_type=layer_with_interventions,
+        )
+
+
+class LlamaInterventionsForCausalLM(LlamaForCausalLM):
+    def __init__(
+        self,
+        *,
+        vllm_config: VllmConfig,
+        prefix: str = "",
+        interventions_config: interventions_utils.InterventionsConfig,
+    ):
+        self.interventions_config = interventions_config
+        super().__init__(vllm_config=vllm_config, prefix=prefix)
+
+    def _init_model(
+        self,
+        vllm_config: VllmConfig,
+        prefix: str = "",
+        layer_type: type[nn.Module] = LlamaDecoderLayer,
+    ):
+        return LlamaInterventionsModel(
+            vllm_config=vllm_config,
+            prefix=prefix,
+            interventions_config=self.interventions_config,
+        )

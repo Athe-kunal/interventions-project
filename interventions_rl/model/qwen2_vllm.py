@@ -218,6 +218,7 @@ class Qwen2DecoderLayer(nn.Module):
         cache_config: CacheConfig | None = None,
         quant_config: QuantizationConfig | None = None,
         prefix: str = "",
+        interventions_config: interventions_utils.InterventionsConfig | None = None,
     ) -> None:
         super().__init__()
         self.hidden_size = config.hidden_size
@@ -225,7 +226,7 @@ class Qwen2DecoderLayer(nn.Module):
         dual_chunk_attention_config = getattr(
             config, "dual_chunk_attention_config", None
         )
-
+        self.interventions_config = interventions_config
         # By default, Qwen2 uses causal attention as it is a decoder-only model.
         # You can override the HF config with `is_causal=False` to enable
         # bidirectional attention, which is used in some embedding models
@@ -246,6 +247,12 @@ class Qwen2DecoderLayer(nn.Module):
             prefix=f"{prefix}.self_attn",
             attn_type=attn_type,
             dual_chunk_attention_config=dual_chunk_attention_config,
+        )
+        self.intervention = interventions_utils.build_intervention(
+            icfg=self.interventions_config,
+            layer_idx=extract_layer_index(prefix),
+            hidden_size=self.hidden_size,
+            num_layers=config.num_hidden_layers,
         )
         self.mlp = Qwen2MLP(
             hidden_size=self.hidden_size,
@@ -279,6 +286,9 @@ class Qwen2DecoderLayer(nn.Module):
         # Fully Connected
         hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
         hidden_states = self.mlp(hidden_states)
+        full_state = residual + hidden_states
+        full_state = self.intervention(full_state)
+        hidden_states = full_state - residual
         return hidden_states, residual
 
 
@@ -331,10 +341,11 @@ class Qwen2Model(nn.Module):
         *,
         vllm_config: VllmConfig,
         prefix: str = "",
+        interventions_config: interventions_utils.InterventionsConfig,
         decoder_layer_type: type[nn.Module] = Qwen2DecoderLayer,
     ):
         super().__init__()
-
+        self.interventions_config = interventions_config
         config = vllm_config.model_config.hf_config.get_text_config()
         cache_config = vllm_config.cache_config
         quant_config = vllm_config.quant_config
@@ -376,6 +387,7 @@ class Qwen2Model(nn.Module):
                 cache_config=cache_config,
                 quant_config=quant_config,
                 prefix=prefix,
+                interventions_config=interventions_config,
             ),
             prefix=f"{prefix}.layers",
         )
@@ -525,7 +537,9 @@ class Qwen2InterventionsForCausalLM(
         self.interventions_config = interventions_config
         self.quant_config = quant_config
         self.model = Qwen2Model(
-            vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+            vllm_config=vllm_config,
+            prefix=maybe_prefix(prefix, "model"),
+            interventions_config=interventions_config,
         )
 
         if get_pp_group().is_last_rank:
