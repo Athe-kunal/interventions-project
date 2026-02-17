@@ -112,6 +112,7 @@ def build_intervention(
     layer_idx: int,
     hidden_size: int,
     num_layers: int,
+    dtype: torch.dtype | None = None,
 ) -> torch.nn.Module:
     """Create the requested intervention or Identity if not applicable."""
     if icfg is None:
@@ -134,7 +135,10 @@ def build_intervention(
         act_fn=icfg.act_fn,
         init_orth=icfg.init_orth,
     )
-    return cast(torch.nn.Module, mod)
+    result = cast(torch.nn.Module, mod)
+    if dtype is not None:
+        result = result.to(dtype=dtype)
+    return result
 
 
 def read_config_from_yaml(path: str) -> InterventionsConfig:
@@ -143,3 +147,73 @@ def read_config_from_yaml(path: str) -> InterventionsConfig:
         path, section="InterventionsConfig", validation=InterventionsConfig
     )
     return config
+
+
+VLLM_ARCHITECTURE_MAPPING: dict[str, str] = {
+    "Qwen2ForCausalLM": "Qwen2InterventionsForCausalLM",
+    "Qwen3ForCausalLM": "Qwen3InterventionsForCausalLM",
+    "LlamaForCausalLM": "LlamaInterventionsForCausalLM",
+}
+
+
+def read_interventions_config_from_hf(hf_config) -> InterventionsConfig:
+    """Extract InterventionsConfig from a HuggingFace PretrainedConfig.
+
+    Expects config.json to contain an ``interventions_config`` dict
+    (written by ``prepare_model_for_vllm``).
+    """
+    ic_dict = getattr(hf_config, "interventions_config", None)
+    if ic_dict is None:
+        raise ValueError(
+            "interventions_config not found in model config.json. "
+            "Use interventions_utils.prepare_model_for_vllm() to create "
+            "a model directory with the required config."
+        )
+    return InterventionsConfig(**ic_dict)
+
+
+def prepare_model_for_vllm(
+    model_name_or_path: str,
+    interventions_config: InterventionsConfig,
+    output_dir: str,
+) -> str:
+    """Create a local model directory whose config.json contains the
+    interventions architecture name and config, with symlinks to the
+    original model files (weights, tokenizer, etc.).
+
+    Returns output_dir so it can be used as the vLLM model path.
+    """
+    import os
+    from pathlib import Path
+    from huggingface_hub import snapshot_download
+    from transformers import AutoConfig
+
+    src = Path(model_name_or_path)
+    if not src.is_dir():
+        src = Path(snapshot_download(model_name_or_path))
+
+    config = AutoConfig.from_pretrained(str(src), trust_remote_code=True)
+
+    original_arch = (config.architectures or [None])[0]
+    new_arch = VLLM_ARCHITECTURE_MAPPING.get(original_arch)
+    if new_arch is None:
+        raise ValueError(
+            f"No interventions architecture registered for: {original_arch}. "
+            f"Supported: {list(VLLM_ARCHITECTURE_MAPPING.keys())}"
+        )
+
+    config.architectures = [new_arch]
+    config.interventions_config = interventions_config.model_dump()
+
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    config.save_pretrained(str(out))
+
+    for src_file in src.iterdir():
+        if src_file.name == "config.json":
+            continue
+        dst_file = out / src_file.name
+        if not dst_file.exists():
+            os.symlink(src_file.resolve(), dst_file)
+
+    return str(out)

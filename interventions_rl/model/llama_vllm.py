@@ -748,7 +748,8 @@ class LlamaInterventionsDecoderLayer(LlamaDecoderLayer):
         hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
         hidden_states = self.mlp(hidden_states)
         full_state = residual + hidden_states
-        full_state = self.intervention(full_state)
+        input_dtype = full_state.dtype
+        full_state = self.intervention(full_state.float()).to(input_dtype)
         hidden_states = full_state - residual
         return hidden_states, residual
 
@@ -779,9 +780,11 @@ class LlamaInterventionsForCausalLM(LlamaForCausalLM):
         *,
         vllm_config: VllmConfig,
         prefix: str = "",
-        interventions_config: interventions_utils.InterventionsConfig,
     ):
-        self.interventions_config = interventions_config
+        config = vllm_config.model_config.hf_config
+        self.interventions_config = (
+            interventions_utils.read_interventions_config_from_hf(config)
+        )
         super().__init__(vllm_config=vllm_config, prefix=prefix)
 
     def _init_model(
@@ -795,3 +798,11 @@ class LlamaInterventionsForCausalLM(LlamaForCausalLM):
             prefix=prefix,
             interventions_config=self.interventions_config,
         )
+
+    def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]) -> set[str]:
+        loaded = super().load_weights(weights)
+        # Intervention params keep their random init (not in checkpoint)
+        for name, _ in self.named_parameters():
+            if "intervention" in name:
+                loaded.add(name)
+        return loaded

@@ -7,7 +7,7 @@ DATASET_NAME="${DATASET_NAME:-open-r1/DAPO-Math-17k-Processed}"
 # vLLM mode: colocate, server, or disabled
 VLLM_MODE="${VLLM_MODE:-colocate}"
 VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.3}"
-VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-4}"
+VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-2}"
 VLLM_SERVER_HOST="${VLLM_SERVER_HOST:-localhost}"
 VLLM_SERVER_PORT="${VLLM_SERVER_PORT:-8000}"
 
@@ -27,7 +27,7 @@ fi
 
 export VLLM_SKIP_WARMUP=1
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
+CUDA_VISIBLE_DEVICES=0,1 ACCELERATE_LOG_LEVEL=info \
     uv run accelerate launch \
     --main_process_port 29503 \
     --config_file scripts/accelerate/ds_zero2_4gpu.yaml \
@@ -56,7 +56,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
     --config.training.lr_scheduler_type cosine \
     --config.training.use_liger_kernel false \
     --config.training.loss_type dr_grpo \
-    --config.training.report_to "" \
+    --config.training.report_to none \
     --config.dataset.example_numbers 1000000000 \
     2>&1 | tee "${LOG_FILE}"
 

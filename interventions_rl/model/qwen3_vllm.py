@@ -343,7 +343,12 @@ class Qwen3ForCausalLM(nn.Module, SupportsLoRA, SupportsPP, SupportsEagle3):
             self,
             skip_prefixes=(["lm_head."] if self.config.tie_word_embeddings else None),
         )
-        return loader.load_weights(weights)
+        loaded = loader.load_weights(weights)
+        # Intervention params keep their random init (not in checkpoint)
+        for name, _ in self.named_parameters():
+            if "intervention" in name:
+                loaded.add(name)
+        return loaded
 
 
 class Qwen3InterventionsDecoderLayer(nn.Module):
@@ -422,7 +427,8 @@ class Qwen3InterventionsDecoderLayer(nn.Module):
         hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
         hidden_states = self.mlp(hidden_states)
         full_state = residual + hidden_states
-        full_state = self.intervention(full_state)
+        input_dtype = full_state.dtype
+        full_state = self.intervention(full_state.float()).to(input_dtype)
         hidden_states = full_state - residual
         return hidden_states, residual
 
@@ -447,11 +453,13 @@ class Qwen3InterventionsForCausalLM(
         *,
         vllm_config: VllmConfig,
         prefix: str = "",
-        interventions_config: interventions_utils.InterventionsConfig,
     ):
         super().__init__()
         config = vllm_config.model_config.hf_config
         quant_config = vllm_config.quant_config
+        interventions_config = (
+            interventions_utils.read_interventions_config_from_hf(config)
+        )
 
         self.config = config
         self.interventions_config = interventions_config
@@ -516,4 +524,9 @@ class Qwen3InterventionsForCausalLM(
             self,
             skip_prefixes=(["lm_head."] if self.config.tie_word_embeddings else None),
         )
-        return loader.load_weights(weights)
+        loaded = loader.load_weights(weights)
+        # Intervention params keep their random init (not in checkpoint)
+        for name, _ in self.named_parameters():
+            if "intervention" in name:
+                loaded.add(name)
+        return loaded
