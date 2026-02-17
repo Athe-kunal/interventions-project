@@ -749,7 +749,7 @@ class LlamaInterventionsDecoderLayer(LlamaDecoderLayer):
         hidden_states = self.mlp(hidden_states)
         full_state = residual + hidden_states
         input_dtype = full_state.dtype
-        full_state = self.intervention(full_state.float()).to(input_dtype)
+        full_state = self.intervention(full_state).to(input_dtype)
         hidden_states = full_state - residual
         return hidden_states, residual
 

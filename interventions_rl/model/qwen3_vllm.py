@@ -428,7 +428,7 @@ class Qwen3InterventionsDecoderLayer(nn.Module):
         hidden_states = self.mlp(hidden_states)
         full_state = residual + hidden_states
         input_dtype = full_state.dtype
-        full_state = self.intervention(full_state.float()).to(input_dtype)
+        full_state = self.intervention(full_state).to(input_dtype)
         hidden_states = full_state - residual
         return hidden_states, residual
 
@@ -457,8 +457,8 @@ class Qwen3InterventionsForCausalLM(
         super().__init__()
         config = vllm_config.model_config.hf_config
         quant_config = vllm_config.quant_config
-        interventions_config = (
-            interventions_utils.read_interventions_config_from_hf(config)
+        interventions_config = interventions_utils.read_interventions_config_from_hf(
+            config
         )
 
         self.config = config

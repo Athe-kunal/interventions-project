@@ -23,7 +23,8 @@ class LowRankRotateLayer(torch.nn.Module):
             torch.nn.init.orthogonal_(self.weight)
 
     def forward(self, x):
-        return torch.matmul(x, self.weight)
+        with torch.autocast("cuda", dtype=torch.float32):
+            return torch.matmul(x, self.weight)
 
 
 class LoreftIntervention(
@@ -52,12 +53,13 @@ class LoreftIntervention(
         )
 
     def forward(self, base, source=None, subspaces=None):
-        rotated_base = self.rotate_layer(base)
-        output = base + torch.matmul(
-            (self.act_fn(self.learned_source(base)) - rotated_base),
-            self.rotate_layer.weight.T,
-        )
-        return self.dropout(output)
+        with torch.autocast("cuda", dtype=torch.float32):
+            rotated_base = self.rotate_layer(base)
+            output = base + torch.matmul(
+                (self.act_fn(self.learned_source(base)) - rotated_base),
+                self.rotate_layer.weight.T,
+            )
+            return self.dropout(output)
 
     def state_dict(self, destination=None, prefix="", keep_vars=False):
         """
@@ -145,11 +147,13 @@ class NoreftIntervention(
         )
 
     def forward(self, base, source=None, subspaces=None):
-        proj_base = self.proj_layer(base)
-        output = base + torch.matmul(
-            (self.act_fn(self.learned_source(base)) - proj_base), self.proj_layer.weight
-        )
-        return self.dropout(output)
+        with torch.autocast("cuda", dtype=torch.float32):
+            proj_base = self.proj_layer(base)
+            output = base + torch.matmul(
+                (self.act_fn(self.learned_source(base)) - proj_base),
+                self.proj_layer.weight,
+            )
+            return self.dropout(output)
 
 
 class ConsreftIntervention(
@@ -170,11 +174,12 @@ class ConsreftIntervention(
         )
 
     def forward(self, base, source=None, subspaces=None):
-        rotated_base = self.rotate_layer(base)
-        output = base + torch.matmul(
-            (self.learned_source - rotated_base), self.rotate_layer.weight.T
-        )
-        return output
+        with torch.autocast("cuda", dtype=torch.float32):
+            rotated_base = self.rotate_layer(base)
+            output = base + torch.matmul(
+                (self.learned_source - rotated_base), self.rotate_layer.weight.T
+            )
+            return output
 
 
 class LobireftIntervention(
@@ -198,8 +203,11 @@ class LobireftIntervention(
         )
 
     def forward(self, base, source=None, subspaces=None):
-        output = base + torch.matmul(self.learned_source, self.rotate_layer.weight.T)
-        return self.dropout(output)
+        with torch.autocast("cuda", dtype=torch.float32):
+            output = base + torch.matmul(
+                self.learned_source, self.rotate_layer.weight.T
+            )
+            return self.dropout(output)
 
 
 class DireftIntervention(
@@ -228,11 +236,12 @@ class DireftIntervention(
         )
 
     def forward(self, base, source=None, subspaces=None):
-        output = base + torch.matmul(
-            self.act_fn(self.learned_source(base)),
-            self.rotate_layer.weight.T,
-        )
-        return self.dropout(output)
+        with torch.autocast("cuda", dtype=torch.float32):
+            output = base + torch.matmul(
+                self.act_fn(self.learned_source(base)),
+                self.rotate_layer.weight.T,
+            )
+            return self.dropout(output)
 
 
 class NodireftIntervention(
@@ -260,7 +269,8 @@ class NodireftIntervention(
         )
 
     def forward(self, base, source=None, subspaces=None):
-        output = base + torch.matmul(
-            self.act_fn(self.learned_source(base)), self.proj_layer.weight
-        )
-        return self.dropout(output)
+        with torch.autocast("cuda", dtype=torch.float32):
+            output = base + torch.matmul(
+                self.act_fn(self.learned_source(base)), self.proj_layer.weight
+            )
+            return self.dropout(output)
