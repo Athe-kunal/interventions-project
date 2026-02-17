@@ -38,6 +38,9 @@ class LoreftIntervention(
         super().__init__(**kwargs, keep_last_dim=True)
         rotate_layer = LowRankRotateLayer(
             self.embed_dim, kwargs["low_rank_dimension"], init_orth=True
+        ).to(
+            device=kwargs.get("device", None) or self.learned_source.weight.device,
+            dtype=torch.float32,
         )
         self.rotate_layer = torch.nn.utils.parametrizations.orthogonal(rotate_layer)
         self.learned_source = torch.nn.Linear(
