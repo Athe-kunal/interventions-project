@@ -10,6 +10,7 @@ from config import TrainConfig
 from interventions_rl.data.open_r1 import load_openr1_dataset
 from interventions_rl.model import qwen, llama, interventions_utils
 from interventions_rl.model.load_model import load_interventions_model
+from interventions_rl.model.interventions import force_rotate_layers_fp32
 import interventions_rl.model.register_vllm
 
 
@@ -116,6 +117,7 @@ def train(config: Optional[TrainConfig] = None):
         map_dtype=dtype,
         map_device=device,
     )
+    force_rotate_layers_fp32(model)
     logger.info(f"Model loaded: {report.summary()}")
 
     # 2b. Prepare model directory for vLLM (config.json with interventions arch)
