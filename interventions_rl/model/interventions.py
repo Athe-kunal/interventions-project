@@ -121,7 +121,8 @@ class LoreftIntervention(_BaseReftIntervention):
             rotated_base = self.rotate_layer(base_f)  # fp32
             learned_source_fp32 = self.learned_source.to(torch.float32)
             delta = self.act_fn(learned_source_fp32(base_f)) - rotated_base  # fp32
-            out_f = base_f + delta.matmul(self.rotate_layer.weight.T)  # fp32
+            rotate_layer = self.rotate_layer.weight.to(torch.float32)
+            out_f = base_f + delta.matmul(rotate_layer.T)  # fp32
             out_f = self.dropout(out_f)
 
         return out_f.to(dtype=torch.bfloat16)
