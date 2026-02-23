@@ -58,6 +58,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
     --config.training.loss_type dr_grpo \
     --config.training.report_to none \
     --config.dataset.example_numbers 1000000000 \
+    "$@" \
     2>&1 | tee "${LOG_FILE}"
 
 echo "Training complete! Check: ${LOG_FILE}"
