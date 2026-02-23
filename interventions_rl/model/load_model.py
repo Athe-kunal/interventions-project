@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Mapping, MutableMapping, Sequence
 import tqdm
 import fnmatch
+import re
 import torch
 from loguru import logger
 from torch import nn
@@ -98,6 +99,21 @@ def count_parameters(model: nn.Module) -> tuple[int, int]:
     return total_params, trainable_params
 
 
+def _extract_layer_idx_from_param_name(name: str) -> int | None:
+    """Best-effort parser for transformer layer index from a parameter name.
+
+    Expected patterns include names such as:
+    - model.layers.0.*
+    - transformer.h.12.*
+    """
+    patterns = [r"(?:^|\.)layers\.(\d+)(?:\.|$)", r"(?:^|\.)h\.(\d+)(?:\.|$)"]
+    for pattern in patterns:
+        match = re.search(pattern, name)
+        if match:
+            return int(match.group(1))
+    return None
+
+
 def load_hf_into_custom_model(
     *,
     hf_model_name_or_path: str | None = None,
@@ -119,7 +135,7 @@ def load_hf_into_custom_model(
     if hf_model_name_or_path is not None:
         hf_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(
             hf_model_name_or_path,
-            dtype=map_dtype if map_dtype is not None else None,
+            torch_dtype=map_dtype if map_dtype is not None else None,
             trust_remote_code=trust_remote_code,
         )
         src_sd = hf_model.state_dict()
@@ -154,8 +170,16 @@ def load_hf_into_custom_model(
         for name, param in custom_model.named_parameters():
             if not "intervention" in name:
                 continue
+            layer_idx = _extract_layer_idx_from_param_name(name)
+            if layer_idx is None:
+                # Fall back to keeping intervention params trainable if layer
+                # index can't be inferred from the parameter name.
+                param.requires_grad = True
+                continue
             if interventions_utils.interventions_based_layer_idx(
-                custom_model.interventions_config, name, hf_config.num_hidden_layers
+                custom_model.interventions_config,
+                layer_idx,
+                hf_config.num_hidden_layers,
             ):
                 param.requires_grad = True
 

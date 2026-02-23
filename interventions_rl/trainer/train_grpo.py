@@ -1,7 +1,7 @@
 import torch
 from trl import GRPOTrainer, GRPOConfig
 from loguru import logger
-from interventions_rl.model import qwen3, llama, interventions_utils
+from interventions_rl.model import qwen, interventions_utils
 from interventions_rl.model.load_model import load_interventions_model
 from interventions_rl.data import open_r1
 
@@ -11,7 +11,7 @@ dataset = open_r1.load_openr1_dataset(
 
 report, model = load_interventions_model(
     hf_model_name_or_path="Qwen/Qwen3-1.7B",
-    model_class=qwen3.Qwen3ForCausalLM,
+    model_class=qwen.Qwen3ForCausalLM,
     ic_config=interventions_utils.InterventionsConfig(
         intervention_type="LoreftIntervention",
         intervention_layers="all",
