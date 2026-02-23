@@ -66,22 +66,11 @@ python run.py \
 
 ### Multi-GPU Training
 
-```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
-    --config_file scripts/accelerate/ds_zero2_4gpu.yaml \
-    run.py \
-    --config configs/config.yaml \
-    --model.model_name_or_path "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" \
-    --training.use_vllm true \
-    --training.output_dir "./outputs/multi_gpu"
-```
-
 ### Production Training
 
 ```bash
 # Set environment variables
 export OUTPUT_DIR="./outputs/production_run"
-export MODEL_NAME="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 
 # Run with full configuration
 ./scripts/train_grpo.sh
@@ -158,9 +147,5 @@ _, model = load_interventions_model(
     ic_config=config,
     map_dtype=torch.bfloat16,
 )
-
-# Load trained intervention weights
-trainable_weights = torch.load("outputs/experiment/final_model/trainable_weights.pt")
-model.load_state_dict(trainable_weights, strict=False)
 ```
 
