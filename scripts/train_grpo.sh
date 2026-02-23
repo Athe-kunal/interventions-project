@@ -6,7 +6,7 @@ MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-1.5B-Instruct}"
 DATASET_NAME="${DATASET_NAME:-open-r1/DAPO-Math-17k-Processed}"
 # vLLM mode: colocate, server, or disabled
 VLLM_MODE="${VLLM_MODE:-colocate}"
-VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.3}"
+VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.1}"
 VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-4}"
 VLLM_SERVER_HOST="${VLLM_SERVER_HOST:-localhost}"
 VLLM_SERVER_PORT="${VLLM_SERVER_PORT:-8000}"
@@ -36,11 +36,11 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
     --config.dataset.dataset_name_or_path "${DATASET_NAME}" \
     --config.training.output_dir "${OUTPUT_DIR}" \
     --config.training.run_name "$(basename "${OUTPUT_DIR}")" \
-    --config.training.gradient_accumulation_steps 8 \
-    --config.training.max_completion_length 16384 \
+    --config.training.gradient_accumulation_steps 1 \
+    --config.training.max_completion_length 4096 \
     --config.training.max_prompt_length 512 \
      --config.training.num_train_epochs 1 \
-    --config.training.per_device_train_batch_size 4 \
+    --config.training.per_device_train_batch_size 8 \
     --config.training.num_generations 8 \
     --config.training.save_steps 64 \
     --config.training.max_steps 1024 \
@@ -56,7 +56,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info \
     --config.training.lr_scheduler_type cosine \
     --config.training.use_liger_kernel false \
     --config.training.loss_type dr_grpo \
-    --config.training.report_to "" \
+    --config.training.report_to none \
     --config.dataset.example_numbers 1000000000 \
     2>&1 | tee "${LOG_FILE}"
 

@@ -10,6 +10,8 @@ from config import TrainConfig
 from interventions_rl.data.open_r1 import load_openr1_dataset
 from interventions_rl.model import qwen, llama, interventions_utils
 from interventions_rl.model.load_model import load_interventions_model
+from interventions_rl.model.interventions import force_rotate_layers_fp32
+import interventions_rl.model.register_vllm
 
 
 def fuzzy_jobs(args: TrainConfig):
@@ -115,7 +117,20 @@ def train(config: Optional[TrainConfig] = None):
         map_dtype=dtype,
         map_device=device,
     )
+    force_rotate_layers_fp32(model)
     logger.info(f"Model loaded: {report.summary()}")
+
+    # 2b. Prepare model directory for vLLM (config.json with interventions arch)
+    if args.training.use_vllm:
+        vllm_model_path = interventions_utils.prepare_model_for_vllm(
+            model_name_or_path=args.model.model_name_or_path,
+            interventions_config=iv_config,
+            output_dir=os.path.join(args.training.output_dir, "vllm_model"),
+        )
+        logger.info(f"Prepared vLLM model directory: {vllm_model_path}")
+        # TRL's GRPOTrainer reads model.name_or_path to create the vLLM engine
+        model.name_or_path = vllm_model_path
+        model.config._name_or_path = vllm_model_path
 
     # 3.Training configuration
     training_args = GRPOConfig(

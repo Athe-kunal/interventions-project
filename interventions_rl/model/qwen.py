@@ -209,6 +209,7 @@ class Qwen2DecoderLayer(LlamaDecoderLayer):
             config=config,
             layer_idx=layer_idx,
         )
+        self.self_attn = Qwen2Attention(config=config, layer_idx=layer_idx)
         self.attention_type = config.layer_types[layer_idx]
 
 
@@ -225,6 +226,16 @@ class Qwen2Model(MistralModel):
         super().__init__(config=config)
         self.interventions_config = interventions_config
         self.has_sliding_layers = "sliding_attention" in self.config.layer_types
+        self.layers = nn.ModuleList(
+            [
+                Qwen2DecoderLayer(
+                    interventions_config=interventions_config,
+                    config=config,
+                    layer_idx=layer_idx,
+                )
+                for layer_idx in range(config.num_hidden_layers)
+            ]
+        )
 
     @check_model_inputs
     @auto_docstring
@@ -309,7 +320,14 @@ class Qwen2Model(MistralModel):
 
 
 class Qwen2ForCausalLM(LlamaForCausalLM):
-    pass
+    def __init__(
+        self,
+        interventions_config: interventions_utils.InterventionsConfig,
+        config: Qwen2Config,
+    ):
+        super().__init__(interventions_config, config)
+        self.model = Qwen2Model(interventions_config, config)
+        self.post_init()
 
 
 class Qwen2ForSequenceClassification(LlamaForSequenceClassification):
@@ -404,7 +422,18 @@ class Qwen3Attention(LlamaAttention):
 
 
 class Qwen3DecoderLayer(Qwen2DecoderLayer):
-    pass
+    def __init__(
+        self,
+        interventions_config: interventions_utils.InterventionsConfig,
+        config: Qwen3Config,
+        layer_idx: int,
+    ):
+        super().__init__(
+            interventions_config=interventions_config,
+            config=config,
+            layer_idx=layer_idx,
+        )
+        self.self_attn = Qwen3Attention(config=config, layer_idx=layer_idx)
 
 
 class Qwen3PreTrainedModel(Qwen2PreTrainedModel):
@@ -412,10 +441,34 @@ class Qwen3PreTrainedModel(Qwen2PreTrainedModel):
 
 
 class Qwen3Model(Qwen2Model):
-    pass
+    def __init__(
+        self,
+        interventions_config: interventions_utils.InterventionsConfig,
+        config: Qwen3Config,
+    ):
+        super().__init__(interventions_config=interventions_config, config=config)
+        self.layers = nn.ModuleList(
+            [
+                Qwen3DecoderLayer(
+                    interventions_config=interventions_config,
+                    config=config,
+                    layer_idx=layer_idx,
+                )
+                for layer_idx in range(config.num_hidden_layers)
+            ]
+        )
 
 
 class Qwen3ForCausalLM(Qwen2ForCausalLM):
+    def __init__(
+        self,
+        interventions_config: interventions_utils.InterventionsConfig,
+        config: Qwen3Config,
+    ):
+        super().__init__(interventions_config, config)
+        self.model = Qwen3Model(interventions_config, config)
+        self.post_init()
+
     def forward(
         self,
         interventions_config: interventions_utils.InterventionsConfig | None = None,
